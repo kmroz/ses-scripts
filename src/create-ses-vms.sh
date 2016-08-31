@@ -181,8 +181,8 @@ create_blank_images () {
     do
 	base_img_path=`get_base_img_path $n`
 	hd_img_path=`get_hd_img_path $n`
-	echo sudo qemu-img create -f "$img_type" "$base_img_path" "$base_img_size" || out_err_exit "Failed to create: $base_img_path\n"
-	echo sudo qemu-img create -f "$img_type" "$hd_img_path" "$osd_img_size" || out_err_exit "Failed to create: $hd_img_path\n"
+	sudo qemu-img create -f "$img_type" "$base_img_path" "$base_img_size" || out_err_exit "Failed to create: $base_img_path\n"
+	sudo qemu-img create -f "$img_type" "$hd_img_path" "$osd_img_size" || out_err_exit "Failed to create: $hd_img_path\n"
     done
 }
 
@@ -195,17 +195,18 @@ install_os () {
     for n in "${vm_names[@]}"
     do
         out_bold "About to install $n: "
-        out_norm "Connect to console via: sudo virsh console $n\n"
+        out_norm "Connect to console via: "
+        out_bold_green "sudo virsh console $n\n"
 	base_img_path=`get_base_img_path $n`
         if [ ! -z "$autoyast" ]
         then
-            echo sudo virt-install --vcpus "$vcpus" -r "$ram" --accelerate -n "$n" \
+            sudo virt-install --vcpus "$vcpus" -r "$ram" --accelerate -n "$n" \
 		-f "$base_img_path" \
                 --location http://"${www_srv}/${iso_path}" \
 		--extra-args "console=tty0 console=ttyS0,115200n8 serial autoyast=http://${www_srv}/${autoyast}" ||
 		out_err_exit "Failed to create $n\n"
         else
-            echo sudo virt-install --vcpus "$vcpus" -r "$ram" --accelerate -n "$n" \
+            sudo virt-install --vcpus "$vcpus" -r "$ram" --accelerate -n "$n" \
 		-f "$base_img_path" \
                 --location http://"${www_srv}/${iso_path}" \
 		--extra-args "console=tty0 console=ttyS0,115200n8 serial" ||
@@ -231,10 +232,10 @@ attach_disks () {
 </disk>
 EOT
 	# Attach the disk.
-	echo sudo virsh attach-device --config "$n" /tmp/add-disk.xml || out_err_exit "Failed to attach $hd_img_path to $n\n"
+	sudo virsh attach-device --config "$n" /tmp/add-disk.xml || out_err_exit "Failed to attach $hd_img_path to $n\n"
 	# Destroy and re-start VM for disk to appear.
-	echo sudo virsh destroy "$n" || out_err_exit "Failed to destroy $n\n"
-	echo sudo virsh start "$n" || out_err_exit "Failed to start $n\n"
+	sudo virsh destroy "$n" || out_err_exit "Failed to destroy $n\n"
+	sudo virsh start "$n" || out_err_exit "Failed to start $n\n"
     done
     rm /tmp/add-disk.xml
 }
