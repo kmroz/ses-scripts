@@ -212,12 +212,12 @@ do
     shift
 done
 
+# Make sure we're running as root
+running_as_root
+
 # Check for null vars. $autoyast can be null
 [[ ! -z "$num_vms" && ! -z "$vm_base_name" && ! -z "$iso_path" && ! -z "$img_path" ]] ||
     out_err_exit "Missing needed parameters.\n"
-
-# Make sure we're running as root
-running_as_root
 
 set_vm_names
 print_procedure_details
