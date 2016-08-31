@@ -7,6 +7,9 @@
 # A simple scripts that creates a few VM's...
 # ==============================================================================
 
+# Fail fast
+set -e
+
 # Error codes
 success=0
 failure=1
@@ -14,14 +17,15 @@ assert_err=255
 
 # Some globals
 scriptname=$(basename "$0")
-www_srv=oak  # TODO: make this configurable
+www_srv="oak"                 # TODO: make this configurable
+img_type="qcow2"              # TODO: make this configurable
 
 # Required params
 num_vms=3                     # number of vms to create
 vm_base_name=""               # name for vms: foo-1, foo-2, foo-n
 vm_names=()                   # array that will hold vm names
 iso_path=""                   # path to SLE/openSUSE iso to use
-img_path="~/libvirt/images"   # destion of created image
+img_path="~/libvirt/images"   # destination of created image
 
 # Optional
 autoyast=""                   # autoyast file
@@ -34,20 +38,20 @@ txtgreen=$(tput setaf 2)
 usage_msg="usage: $scriptname <required-params> [options]
 required-params:
 \t-b, --base-name
-\t\tBase name for vms. Default: ?
+\t\tBase name for VMs. A VM will be named as <base-name>-<instance num>.
 
 \t-n, --num-vms
-\t\tNumber of vms to create. Default: 3
+\t\tNumber of vms to create.
 
 \t-i, --iso
-\t\tPath to iso. Default: ?
+\t\tPath to iso as a path off of http://$www_srv/
 
 \t-d, --img-destination
 \t\tDestination path for created img. Default: ${img_path}
 
 options:
 \t-a, --autoyast
-\t\tAutoyast file to use.
+\t\tPath to autyast file as a path off of http://$www_srv/
 
 \t-h, --help
 \t\tPrint this usage message.
