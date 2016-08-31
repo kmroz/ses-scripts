@@ -148,20 +148,38 @@ print_procedure_details () {
     out_norm "$img_path\n"
 }
 
+# Based on VM name, get the full base image path.
+get_base_img_path () {
+    local vm_name="$1"
+
+    [[ -z "$vm_name" ]] && assert_err "Empty image name\n"
+    echo "${img_path}/${vm_name}.${img_type}"
+}
+
+get_hd_img_path () {
+    local vm_name="$1"
+
+    [[ -z "$vm_name" ]] && assert_err "Empty image name\n"
+    echo "${img_path}/${vm_name}-osd-hd.${img_type}"
+}
+
 # Creates the blank images.
 # Assumptions:
 #  - qcow2
 #  - 1 osd hd per vm
 #  - 32 gb base image, 20 gb osd image
 create_blank_images () {
-    local img_type="qcow2"
     local base_img_size="32G"
     local osd_img_size="20G"
+    local base_img_path=""
+    local hd_img_path=""
 
     for n in "${vm_names[@]}"
     do
-        echo sudo qemu-img create -f "$img_type" "${img_path}/${n}.${img_type}" "$base_img_size"
-        echo sudo qemu-img create -f "$img_type" "${img_path}/${n}-osd-hd.${img_type}" "$osd_img_size"
+	base_img_path=`get_base_img_path $n`
+	hd_img_path=`get_hd_img_path $n`
+	echo sudo qemu-img create -f "$img_type" "$base_img_path" "$base_img_size" || out_err_exit "Failed to create: $base_img_path\n"
+	echo sudo qemu-img create -f "$img_type" "$hd_img_path" "$osd_img_size" || out_err_exit "Failed to create: $hd_img_path\n"
     done
 }
 
@@ -169,23 +187,26 @@ create_blank_images () {
 install_os () {
     local vcpus=1
     local ram=1024
-    local img_type="qcow2"
+    local base_img_path=""
 
     for n in "${vm_names[@]}"
     do
         out_bold "About to install $n: "
         out_norm "Connect to console via: sudo virsh console $n\n"
+	base_img_path=`get_base_img_path $n`
         if [ ! -z "$autoyast" ]
         then
             echo sudo virt-install --vcpus "$vcpus" -r "$ram" --accelerate -n "$n" \
-                -f "${img_path}/${n}.${img_type}" \
+		-f "$base_img_path" \
                 --location http://"${www_srv}/${iso_path}" \
-                --extra-args "console=tty0 console=ttyS0,115200n8 serial autoyast=http://${www_srv}/${autoyast}"
+		--extra-args "console=tty0 console=ttyS0,115200n8 serial autoyast=http://${www_srv}/${autoyast}" ||
+		out_err_exit "Failed to create $n\n"
         else
             echo sudo virt-install --vcpus "$vcpus" -r "$ram" --accelerate -n "$n" \
-                -f "${img_path}/${n}.${img_type}" \
+		-f "$base_img_path" \
                 --location http://"${www_srv}/${iso_path}" \
-                --extra-args "console=tty0 console=ttyS0,115200n8 serial"
+		--extra-args "console=tty0 console=ttyS0,115200n8 serial" ||
+		out_err_exit "Failed to create $n\n"
         fi
     done
 }
