@@ -163,6 +163,8 @@ install_os () {
 
     for n in "${vm_names[@]}"
     do
+        out_bold "About to install $n: "
+        out_norm "Connect to console via: sudo virsh console $n\n"
         if [ ! -z "$autoyast" ]
         then
             echo sudo virt-install --vcpus "$vcpus" -r "$ram" --accelerate -n "$n" \
