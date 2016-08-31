@@ -211,6 +211,31 @@ install_os () {
     done
 }
 
+# Attach disks to VMs and destroy/restart.
+attach_disks () {
+    local hd_img_path=""
+
+    for n in "${vm_names[@]}"
+    do
+	hd_img_path=`get_hd_img_path $n`
+	out_bold "Attaching disk $hd_img_path to $n\n"
+	# Generate xml
+	cat << EOT > /tmp/add-disk.xml
+<disk type='file' device='disk'>
+   <driver name='qemu' type='qcow2' cache='none'/>
+   <source file='$hd_img_path'/>
+   <target dev='vdb'/>
+</disk>
+EOT
+	# Attach the disk.
+	echo sudo virsh attach-device --config "$n" /tmp/add-disk.xml || out_err_exit "Failed to attach $hd_img_path to $n\n"
+	# Destroy and re-start VM for disk to appear.
+	echo sudo virsh destroy "$n" || out_err_exit "Failed to destroy $n\n"
+	echo sudo virsh start "$n" || out_err_exit "Failed to start $n\n"
+    done
+    rm /tmp/add-disk.xml
+}
+
 # Parse our command line options
 while [ "$#" -ge 1 ]
 do
@@ -257,3 +282,4 @@ print_procedure_details
 
 create_blank_images
 install_os
+attach_disks
