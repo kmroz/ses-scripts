@@ -55,6 +55,9 @@ options:
 
 \t-h, --help
 \t\tPrint this usage message.
+
+example:
+\t sudo ./create-ses-vms.sh -b firsttest -n 1 -i SLES12-SP2/ -d /home/kmroz/libvirt/images
 "
 
 out_bold () {
