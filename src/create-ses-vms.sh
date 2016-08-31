@@ -117,7 +117,7 @@ usage_exit () {
 }
 
 running_as_root () {
-    [[ "$EUID" = 0 ]] || out_err_exit "Run $scriptname as root\n"
+    [[ "$EUID" = 0 ]] || out_err_usage_exit "Run $scriptname as root\n"
 }
 
 print_vm_names () {
@@ -229,7 +229,7 @@ running_as_root
 
 # Check for null vars. $autoyast can be null
 [[ ! -z "$num_vms" && ! -z "$vm_base_name" && ! -z "$iso_path" && ! -z "$img_path" ]] ||
-    out_err_exit "Missing needed parameters.\n"
+    out_err_usage_exit "Missing needed parameters.\n"
 
 set_vm_names
 print_procedure_details
