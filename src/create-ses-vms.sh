@@ -88,6 +88,12 @@ out_err () {
 }
 
 out_err_exit () {
+    local msg=$1
+    out_bold_red "ERROR: $msg"
+    exit "$failure"
+}
+
+out_err_usage_exit () {
     local msg="$1"
     out_bold_red "ERROR: $msg"
     usage_exit "$failure"
