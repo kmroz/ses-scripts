@@ -155,7 +155,7 @@ get_user_consent () {
 
     while true
     do
-	out_bold_red "$prompt"
+	out_bold_red "\n$prompt"
         read choice
         case $choice in
             [Yy] | [Yy][Ee][Ss])
