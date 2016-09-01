@@ -12,7 +12,9 @@ set -e
 
 # Error codes
 success=0
+yes=0
 failure=1
+no=1
 assert_err=255
 
 # Some globals
@@ -137,7 +139,12 @@ set_vm_names () {
 }
 
 # Print details of what the script will do.
-print_procedure_details () {
+get_user_consent () {
+    local msg="Are you sure you want to proceed?"
+    local answers="Y[es]/N[o] (N)"
+    local prompt="[$msg - $answers]> "
+    local choice=""
+
     out_bold "Creating the following VMs:\n"
     print_vm_names
     out_bold "VMs will run:\n"
@@ -149,6 +156,23 @@ print_procedure_details () {
     fi
     out_bold "And will reside in:\n"
     out_norm "$img_path\n"
+
+    while true
+    do
+	out_bold_green "\n$prompt"
+        read choice
+        case $choice in
+            [Yy] | [Yy][Ee][Ss])
+		return "$yes"
+                ;;
+            [Nn] | [Nn][Oo] | "")
+		return "$no"
+                ;;
+            *)
+                out_err "Invalid input.\n"
+                ;;
+        esac
+    done
 }
 
 # Based on VM name, get the full base image path.
@@ -282,7 +306,7 @@ running_as_root
     out_err_usage_exit "Missing needed parameters.\n"
 
 set_vm_names
-print_procedure_details
+get_user_consent || exit "$success"
 
 create_blank_images
 install_os
