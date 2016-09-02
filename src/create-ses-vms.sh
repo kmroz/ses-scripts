@@ -179,14 +179,14 @@ get_user_consent () {
 get_base_img_path () {
     local vm_name="$1"
 
-    [[ -z "$vm_name" ]] && assert_err "Empty image name\n"
+    [[ -z "$vm_name" ]] && assert "Empty image name\n"
     echo "${img_path}/${vm_name}.${img_type}"
 }
 
 get_hd_img_path () {
     local vm_name="$1"
 
-    [[ -z "$vm_name" ]] && assert_err "Empty image name\n"
+    [[ -z "$vm_name" ]] && assert "Empty image name\n"
     echo "${img_path}/${vm_name}-osd-hd.${img_type}"
 }
 
