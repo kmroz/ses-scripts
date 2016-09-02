@@ -211,6 +211,7 @@ create_blank_images () {
 }
 
 # Install the OS onto the base images
+# Note: for "hostname" to take hold, make sure autoyast file does not set hostname.
 install_os () {
     local vcpus=1
     local ram=1024
@@ -227,14 +228,12 @@ install_os () {
             sudo virt-install --vcpus "$vcpus" -r "$ram" --accelerate -n "$n" \
 		-f "$base_img_path" \
                 --location http://"${www_srv}/${iso_path}" \
-		--extra-args "console=tty0 console=ttyS0,115200n8 serial autoyast=http://${www_srv}/${autoyast}" ||
-		out_err_exit "Failed to create $n\n"
+		--extra-args "console=tty0 console=ttyS0,115200n8 serial autoyast=http://${www_srv}/${autoyast} hostname=${n}"
         else
             sudo virt-install --vcpus "$vcpus" -r "$ram" --accelerate -n "$n" \
 		-f "$base_img_path" \
                 --location http://"${www_srv}/${iso_path}" \
-		--extra-args "console=tty0 console=ttyS0,115200n8 serial" ||
-		out_err_exit "Failed to create $n\n"
+		--extra-args "console=tty0 console=ttyS0,115200n8 serial hostname=${n}"
         fi
     done
 }
