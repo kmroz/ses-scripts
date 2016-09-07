@@ -26,9 +26,7 @@ vm_base_name=""               # name for vms: foo-1, foo-2, foo-n
 img_path=""                   # destination of created image
 
 vms_to_destroy=()
-base_imgs_to_destroy=()
-hd_imgs_to_destroy=()
-
+imgs_to_destroy=()
 
 txtbold=$(tput bold)
 txtnorm=$(tput sgr0)
@@ -90,42 +88,14 @@ running_as_root () {
     [[ "$EUID" = 0 ]] || out_err_usage_exit "Run $scriptname as root\n"
 }
 
-# Based on VM name, get the full base image path.
-get_base_img_path () {
-    local vm_name="$1"
-
-    [[ -z "$vm_name" ]] && assert_err "Empty image name\n"
-    echo "${img_path}/${vm_name}.${img_type}"
-}
-
-get_hd_img_path () {
-    local vm_name="$1"
-
-    [[ -z "$vm_name" ]] && assert_err "Empty image name\n"
-    echo "${img_path}/${vm_name}-osd-hd.${img_type}"
-}
-
 # Get list of VMs on the system matching the form: $vm_base_name-*
 get_vms_to_destroy () {
     vms_to_destroy=($(sudo virsh list --all | grep "$vm_base_name" | awk '{print $2}'))
 }
 
-# Look in $img_path for images matching the form: v in $vms_to_destroy -> $v.$img_type
-get_base_images_to_destroy () {
-    for v in "${vms_to_destroy[@]}"
-    do
-        img=`get_base_img_path $v`
-        [[ -e "$img" ]] && base_imgs_to_destroy+=("$img")
-    done
-}
-
-# Look in $img_path for images matching the form: v in $vms_to_destroy -> $v-osd-hd.$img_type
-get_hd_images_to_destroy () {
-    for v in "${vms_to_destroy[@]}"
-    do
-        img=`get_hd_img_path $v`
-        [[ -e "$img" ]] && hd_imgs_to_destroy+=("$img")
-    done
+# Look in $img_path for images matching the form: $vm_base_name*
+get_images_to_destroy () {
+    imgs_to_destroy+=(`find "$img_path" -regex "${img_path}/${vm_base_name}-[0-9]+.*.${img_type}"`)
 }
 
 # Output what we'll do and get permission.
@@ -141,14 +111,8 @@ get_user_consent () {
         out_norm "$v\n"
     done
 
-    out_bold "About to destroy the following base images:\n"
-    for i in "${base_imgs_to_destroy[@]}"
-    do
-        out_norm "$i\n"
-    done
-
-    out_bold "About to destroy the following hd images:\n"
-    for i in "${hd_imgs_to_destroy[@]}"
+    out_bold "About to destroy the following images:\n"
+    for i in "${imgs_to_destroy[@]}"
     do
         out_norm "$i\n"
     done
@@ -187,16 +151,8 @@ destroy_vms () {
     done
 }
 
-remove_base_imgs () {
-    for i in "${base_imgs_to_destroy[@]}"
-    do
-        out_bold "Deleting $i\n"
-        sudo virsh vol-delete "$i"
-    done
-}
-
-remove_hd_imgs () {
-    for i in "${hd_imgs_to_destroy[@]}"
+remove_imgs () {
+    for i in "${imgs_to_destroy[@]}"
     do
         out_bold "Deleting $i\n"
         sudo virsh vol-delete "$i"
@@ -240,12 +196,10 @@ running_as_root
     out_err_usage_exit "Missing needed parameters.\n"
 
 get_vms_to_destroy
-get_base_images_to_destroy
-get_hd_images_to_destroy
+get_images_to_destroy
 
 get_user_consent || exit "$success"
 
 destroy_vms
-remove_base_imgs
-remove_hd_imgs
+remove_imgs
 undefine_vms
