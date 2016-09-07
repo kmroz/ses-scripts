@@ -173,7 +173,7 @@ get_user_consent () {
 
 # Search for VMs starting with vm_base_name.
 destroy_vms () {
-    if [ -z "${vms_to_destroy[@]}" ]
+    if [ -z "$vms_to_destroy" ]
     then
         out_err "No VMs found starting with a base name of: $vm_base_name\n"
         return "$success"
