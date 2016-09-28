@@ -90,6 +90,7 @@ prepare_admin_node () {
     out_bold "\tDistributing SSH key to all nodes (including this node)...\n"
     for n in "${nodes[@]}"
     do
+        out_bold "ceph@$n\n"
         ssh-copy-id ceph@"$n"
     done
     out_bold_green "\tdone\n"
@@ -110,7 +111,7 @@ EOF
 
 install_ceph () {
     # First install ceph/ceph-deploy on admin node (here)
-    out_bold "\tInstalling Ceph on admin (this) node...\n"
+    out_bold "\tInstalling Ceph on admin (${nodes[0]}) node...\n"
     sudo zypper --non-interactive install ceph || return "$failure"
     sudo zypper --non-interactive install ceph-deploy || return "$failure"
     out_bold_green "\tdone\n"
@@ -132,10 +133,10 @@ install_ceph () {
     done
     out_bold_green "\tdone\n"
     # Install rgw on admin (this) node.
-    out_bold "\tInstalling RGW on admin (this) node...\n"
-    ceph-deploy --overwrite-conf rgw create "${nodes[1]}"
+    out_bold "\tInstalling RGW on admin (${nodes[0]}) node...\n"
+    ceph-deploy --overwrite-conf rgw create "${nodes[0]}"
     out_bold_greep "\tdone\n"
-    out_bold "\tGathering keys on admin (this) node...\n"
+    out_bold "\tGathering keys on admin (${nodes[0]}) node...\n"
     ceph-deploy gatherkeys "${nodes[1]}"
     sudo cp /home/ceph/ceph.client.admin.keyring /etc/ceph # Just in case
     
@@ -152,7 +153,7 @@ running_as_user_ceph && out_bold "yes\n" || out_fail_exit "no\n"
 
 [[ "$#" < "1" ]] && usage_exit "$failure" || nodes=( "$@" )
 
-out_bold "\nPreparing admin (this) node...\n"
+out_bold "\nPreparing admin (${nodes[0]}) node...\n"
 prepare_admin_node && out_bold_green "done\n" || out_fail_exit "failed\n"
 
 out_bold "\nSetting passwordless sudo on all nodes (root password needed)...\n"
