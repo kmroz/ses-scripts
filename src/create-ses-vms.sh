@@ -141,7 +141,7 @@ set_vm_names () {
 # Print details of what the script will do.
 get_user_consent () {
     local msg="Are you sure you want to proceed?"
-    local answers="Y[es]/N[o] (N)"
+    local answers="Y[es]/N[o] (Y)"
     local prompt="[$msg - $answers]> "
     local choice=""
 
@@ -162,10 +162,10 @@ get_user_consent () {
 	out_bold_green "\n$prompt"
         read choice
         case $choice in
-            [Yy] | [Yy][Ee][Ss])
+            [Yy] | [Yy][Ee][Ss] | "")
 		return "$yes"
                 ;;
-            [Nn] | [Nn][Oo] | "")
+            [Nn] | [Nn][Oo])
 		return "$no"
                 ;;
             *)
