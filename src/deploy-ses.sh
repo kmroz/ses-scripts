@@ -1,9 +1,9 @@
 #!/bin/bash
 # ==============================================================================
-# deploy-ses2.sh
-# --------------
+# deploy-ses.sh
+# -------------
 #
-# Simple script to deploy a SES2 installation.  Attempts to automate as much as
+# Simple script to deploy a SES2 or SES3 installation.  Attempts to automate as much as
 # possible using ceph-deploy.
 # Assumes that correct repos are added to the entire cluster.
 # ==============================================================================
@@ -18,13 +18,15 @@ assert_err=255
 # globals
 scriptname=$(basename "$0")
 nodes=() # List of nodes we will operate on.
+ses_ver=""
+cephadm_user=""
 
 txtbold=$(tput bold)
 txtnorm=$(tput sgr0)
 txtred=$(tput setaf 1)
 txtgreen=$(tput setaf 2)
 
-usage_msg="\nusage: $scriptname <admin_node> [node list]\n"
+usage_msg="\nusage: $scriptname <ses2 | ses3> <admin_node> [node list]\n"
 
 out_bold () {
     local msg=$1
@@ -75,7 +77,7 @@ usage_exit () {
 }
 
 running_as_user_ceph () {
-    [[ `whoami` = ceph ]]
+    [[ `whoami` = "$cephadm_user" ]]
 }
 
 # Get our admin node (which will also run Ceph) ready.
@@ -90,8 +92,8 @@ prepare_admin_node () {
     out_bold "\tDistributing SSH key to all nodes (including this node)...\n"
     for n in "${nodes[@]}"
     do
-        out_bold "ceph@$n\n"
-        ssh-copy-id ceph@"$n"
+        out_bold "${cephadm_user}@$n\n"
+        ssh-copy-id "${cephadm_user}"@"$n"
     done
     out_bold_green "\tdone\n"
 }
@@ -101,8 +103,8 @@ set_passwordless_sudo () {
     do
         out_bold "root@$n\n"
         ssh root@"$n" << EOF
-echo "ceph ALL = (root) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/ceph &> /dev/null
-sudo chmod 0440 /etc/sudoers.d/ceph
+echo "${cephadm_user} ALL = (root) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/${cephadm_user} &> /dev/null
+sudo chmod 0440 /etc/sudoers.d/${cephadm_user}
 EOF
     done
 
@@ -137,21 +139,26 @@ install_ceph () {
     ceph-deploy --overwrite-conf rgw create "${nodes[0]}"
     out_bold_greep "\tdone\n"
     out_bold "\tGathering keys on admin (${nodes[0]}) node...\n"
-    ceph-deploy gatherkeys "${nodes[1]}"
-    sudo cp /home/ceph/ceph.client.admin.keyring /etc/ceph # Just in case
-    
+    ceph-deploy gatherkeys "${nodes[0]}"
 }
 
 # ==============================================================================
 # main()
+
+[[ "$#" < "2" ]] && usage_exit "$failure"
+
+ses_ver="$1"
+[[ "$ses_ver" = "ses2" || "$ses_ver" = "ses3" ]] || usage_exit "$failure"
+[[ "$ses_ver" = "ses2" ]] && cephadm_user="ceph" || cephadm_user="cephadm"
+shift
+nodes=( "$@" )
+
 out_bold_green "==========================\n"
-out_bold_green "Admin Node: Deploying SES2\n"
+out_bold_green "Admin Node: Deploying ${ses_ver}\n"
 out_bold_green "==========================\n"
 
-out_bold "\nChecking if running as user 'ceph'... "
+out_bold "\nChecking if running as user '${cephadm_user}'... "
 running_as_user_ceph && out_bold "yes\n" || out_fail_exit "no\n"
-
-[[ "$#" < "1" ]] && usage_exit "$failure" || nodes=( "$@" )
 
 out_bold "\nPreparing admin (${nodes[0]}) node...\n"
 prepare_admin_node && out_bold_green "done\n" || out_fail_exit "failed\n"
