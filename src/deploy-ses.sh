@@ -26,7 +26,7 @@ txtnorm=$(tput sgr0)
 txtred=$(tput setaf 1)
 txtgreen=$(tput setaf 2)
 
-usage_msg="\nusage: $scriptname <ses2 | ses3> <admin_node> [node list]\n"
+usage_msg="\nusage: $scriptname <ses2 | ses3 | ses4> <admin_node> [node list]\n"
 
 out_bold () {
     local msg=$1
@@ -111,7 +111,21 @@ EOF
     out_bold "done\n"
 }
 
-install_ceph () {
+add_salt_master_to_hosts () {
+    # Do our best to get the admin IP address.  Assuming first one wins.
+    # Matches "src" in something like:
+    #   10.0.0.0/24 dev eth0  proto kernel  scope link  src 10.0.0.234 
+    # and stores the next column after (ie. the address).
+    ipaddrs=( `ip r | awk '{for(i=1;i<=NF;i++)if($i~/src/)print $(i+1)}'` )
+    ip=${ipaddrs[0]}
+    for n in "${nodes[@]}"
+    do
+        out_bold "Adding $ip to ${n}:/etc/hosts\n"
+        ssh root@"$n" "echo $ip salt >> /etc/hosts"
+    done
+}
+
+_install_ceph_via_ceph_deploy () {
     # First install ceph/ceph-deploy on admin node (here)
     out_bold "\tInstalling Ceph on admin (${nodes[0]}) node...\n"
     sudo zypper --non-interactive install ceph || return "$failure"
@@ -142,14 +156,51 @@ install_ceph () {
     ceph-deploy gatherkeys "${nodes[0]}"
 }
 
+_install_ceph_via_deepsea () {
+    # Make sure minions can reach salt master
+    add_salt_master_to_hosts
+
+    # TODO Currently this only installs salt/deepsea and does not generate
+    # any configs/run any stages.
+    zypper --non-interactive in salt-master
+    systemctl start salt-master
+    systemctl enable salt-master
+    for n in "${nodes[@]}"
+    do
+        ssh root@$n 'zypper --non-interactive in salt-minion'
+        ssh root@$n 'systemctl start salt-minion'
+        ssh root@$n 'systemctl enable salt-minion'
+    done
+
+    salt-key -L
+    salt-key -A -y
+
+    zypper --non-interactive in deepsea
+
+    out_bold_green "Now proceed with DeepSea\n"
+}
+
+install_ceph () {
+    [[ "$ses_ver" = "ses4" ]] && _install_ceph_via_deepsea || _install_ceph_via_ceph_deploy
+}
+
 # ==============================================================================
 # main()
 
 [[ "$#" < "2" ]] && usage_exit "$failure"
 
 ses_ver="$1"
-[[ "$ses_ver" = "ses2" || "$ses_ver" = "ses3" ]] || usage_exit "$failure"
-[[ "$ses_ver" = "ses2" ]] && cephadm_user="ceph" || cephadm_user="cephadm"
+[[ "$ses_ver" = "ses2" || "$ses_ver" = "ses3" || "$ses_ver" = "ses4" ]] || usage_exit "$failure"
+if [ "$ses_ver" = "ses2" ]
+then
+    cephadm_user="ceph"
+elif [ "$ses_ver" = "ses3" ]
+then
+    cephadm_user="cephadm"
+elif [ "$ses_ver" = "ses4" ]
+then
+    cephadm_user="root"
+fi
 shift
 nodes=( "$@" )
 
@@ -157,8 +208,11 @@ out_bold_green "==========================\n"
 out_bold_green "Admin Node: Deploying ${ses_ver}\n"
 out_bold_green "==========================\n"
 
-out_bold "\nChecking if running as user '${cephadm_user}'... "
-running_as_user_ceph && out_bold "yes\n" || out_fail_exit "no\n"
+if [ "$ses_ver" != "ses4" ]
+then
+    out_bold "\nChecking if running as user '${cephadm_user}'... "
+    running_as_user_ceph && out_bold "yes\n" || out_fail_exit "no\n"
+fi
 
 out_bold "\nPreparing admin (${nodes[0]}) node...\n"
 prepare_admin_node && out_bold_green "done\n" || out_fail_exit "failed\n"
@@ -166,7 +220,7 @@ prepare_admin_node && out_bold_green "done\n" || out_fail_exit "failed\n"
 out_bold "\nSetting passwordless sudo on all nodes (root password needed)...\n"
 set_passwordless_sudo && out_bold_green "done\n" || out_fail_exit "failed\n"
 
-out_bold "\nInstalling Ceph on all nodes...\n"
+out_bold "\nInstalling SES\n"
 install_ceph && out_bold "done\n" || out_fail_exit "failed\n"
 
 out_bold_green "\nFinished\n"
