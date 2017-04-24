@@ -76,7 +76,7 @@ usage_exit () {
     [[ -z "$ret_code" ]] && exit "$success" || exit "$ret_code"
 }
 
-running_as_user_ceph () {
+running_as_cephadm () {
     [[ `whoami` = "$cephadm_user" ]]
 }
 
@@ -211,7 +211,7 @@ out_bold_green "==========================\n"
 if [ "$ses_ver" != "ses4" ]
 then
     out_bold "\nChecking if running as user '${cephadm_user}'... "
-    running_as_user_ceph && out_bold "yes\n" || out_fail_exit "no\n"
+    running_as_cephadm && out_bold "yes\n" || out_fail_exit "no\n"
 fi
 
 out_bold "\nPreparing admin (${nodes[0]}) node...\n"
