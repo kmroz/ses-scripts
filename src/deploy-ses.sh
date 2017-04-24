@@ -93,7 +93,8 @@ prepare_admin_node () {
     for n in "${nodes[@]}"
     do
         out_bold "${cephadm_user}@$n\n"
-        ssh-copy-id "${cephadm_user}"@"$n"
+        # StrictHostKeyChecking=no prevents fingerprint checking and the need for manual input of 'yes'.
+        ssh-copy-id -o StrictHostKeyChecking=no "${cephadm_user}"@"$n" &> /dev/null
     done
     out_bold_green "\tdone\n"
 }
