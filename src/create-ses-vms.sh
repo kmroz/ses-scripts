@@ -4,7 +4,7 @@
 # create-ses-vms.sh
 # ------------------
 #
-# A simple scripts that creates a few VM's...
+# A simple script that creates a few VM's...
 # ==============================================================================
 
 # Fail fast
