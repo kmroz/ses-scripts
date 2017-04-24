@@ -4,7 +4,7 @@
 # delete-ses-vms.sh
 # ------------------
 #
-# A simple scripts that deletes a few VM's...
+# A simple script that deletes a few VM's...
 # ==============================================================================
 
 # Fail fast
