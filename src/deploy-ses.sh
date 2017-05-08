@@ -26,7 +26,7 @@ txtnorm=$(tput sgr0)
 txtred=$(tput setaf 1)
 txtgreen=$(tput setaf 2)
 
-usage_msg="\nusage: $scriptname <ses2 | ses3 | ses4> <admin_node> [node list]\n"
+usage_msg="\nusage: $scriptname <ses_ver> <admin_node> [node list]\n"
 
 out_bold () {
     local msg=$1
@@ -103,7 +103,7 @@ set_passwordless_sudo () {
     for n in "${nodes[@]}"
     do
         out_bold "root@$n\n"
-        ssh root@"$n" << EOF
+        ssh "$cephadm_user"@"$n" << EOF
 echo "${cephadm_user} ALL = (root) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/${cephadm_user} &> /dev/null
 sudo chmod 0440 /etc/sudoers.d/${cephadm_user}
 EOF
@@ -119,6 +119,13 @@ add_salt_master_to_hosts () {
     # and stores the next column after (ie. the address).
     ipaddrs=( `ip r | awk '{for(i=1;i<=NF;i++)if($i~/src/)print $(i+1)}'` )
     ip=${ipaddrs[0]}
+
+    # As of SES5, the salt master needs to have it's hostname entry prior to
+    # the salt entry to prevent socket.getfqdn() from thinking the hostname
+    # is salt :/
+    hostname=`hostname --fqdn`
+    echo "$ip" "$hostname" >> /etc/hosts
+
     for n in "${nodes[@]}"
     do
         out_bold "Adding $ip to ${n}:/etc/hosts\n"
@@ -182,7 +189,7 @@ _install_ceph_via_deepsea () {
 }
 
 install_ceph () {
-    [[ "$ses_ver" = "ses4" ]] && _install_ceph_via_deepsea || _install_ceph_via_ceph_deploy
+    [[ "$ses_ver" = "ses2" || "$ses_ver" = "ses3" ]] && _install_ceph_via_ceph_deploy || _install_ceph_via_deepsea
 }
 
 # ==============================================================================
@@ -191,15 +198,20 @@ install_ceph () {
 [[ "$#" < "2" ]] && usage_exit "$failure"
 
 ses_ver="$1"
-[[ "$ses_ver" = "ses2" || "$ses_ver" = "ses3" || "$ses_ver" = "ses4" ]] || usage_exit "$failure"
+ses_ver_found=false
+for ver in "ses"{2..5} # Dictates supported versions of SES.
+do
+    [[ "$ses_ver" = "$ver" ]] && ses_ver_found=true
+done
+[[ $ses_ver_found = true ]] || usage_exit "$failure"
+
 if [ "$ses_ver" = "ses2" ]
 then
     cephadm_user="ceph"
 elif [ "$ses_ver" = "ses3" ]
 then
     cephadm_user="cephadm"
-elif [ "$ses_ver" = "ses4" ]
-then
+else
     cephadm_user="root"
 fi
 shift
@@ -209,19 +221,19 @@ out_bold_green "==========================\n"
 out_bold_green "Admin Node: Deploying ${ses_ver}\n"
 out_bold_green "==========================\n"
 
-if [ "$ses_ver" != "ses4" ]
-then
-    out_bold "\nChecking if running as user '${cephadm_user}'... "
-    running_as_cephadm && out_bold "yes\n" || out_fail_exit "no\n"
-fi
+# if [ "$ses_ver" != "ses4" ]
+# then
+#     out_bold "\nChecking if running as user '${cephadm_user}'... "
+#     running_as_cephadm && out_bold "yes\n" || out_fail_exit "no\n"
+# fi
 
 out_bold "\nPreparing admin (${nodes[0]}) node...\n"
-prepare_admin_node && out_bold_green "done\n" || out_fail_exit "failed\n"
+prepare_admin_node || out_fail_exit "failed\n"
 
 out_bold "\nSetting passwordless sudo on all nodes (root password needed)...\n"
-set_passwordless_sudo && out_bold_green "done\n" || out_fail_exit "failed\n"
+set_passwordless_sudo || out_fail_exit "failed\n"
 
 out_bold "\nInstalling SES\n"
-install_ceph && out_bold "done\n" || out_fail_exit "failed\n"
+install_ceph || out_fail_exit "failed\n"
 
 out_bold_green "\nFinished\n"
