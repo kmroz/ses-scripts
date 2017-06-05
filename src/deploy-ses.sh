@@ -76,16 +76,16 @@ usage_exit () {
     [[ -z "$ret_code" ]] && exit "$success" || exit "$ret_code"
 }
 
-running_as_cephadm () {
-    [[ `whoami` = "$cephadm_user" ]]
+running_as_root () {
+    [[ `whoami` = "root" ]]
 }
 
 # Get our admin node (which will also run Ceph) ready.
 prepare_admin_node () {
     # Generate keys
     out_bold "\tGenerating SSH keys... "
-    [[ -d ~/.ssh ]] || mkdir ~/.ssh
-    [[ -e ~/.ssh/id_rsa ]] || ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa &> /dev/null
+    sudo -u "$cephadm_user" -H bash -c "[[ -d ~/.ssh ]] || mkdir ~/.ssh"
+    sudo -u "$cephadm_user" -H bash -c "[[ -e ~/.ssh/id_rsa ]] || ssh-keygen -t rsa -N \"\" -f ~/.ssh/id_rsa &> /dev/null"
     out_bold_green "done\n"
 
     # Distribute keys to all nodes
@@ -94,7 +94,7 @@ prepare_admin_node () {
     do
         out_bold "${cephadm_user}@$n\n"
         # StrictHostKeyChecking=no prevents fingerprint checking and the need for manual input of 'yes'.
-        ssh-copy-id -o StrictHostKeyChecking=no "${cephadm_user}"@"$n" &> /dev/null
+        sudo -u "$cephadm_user" -H bash -c "ssh-copy-id -o StrictHostKeyChecking=no \"${cephadm_user}\"@\"$n\" &> /dev/null"
     done
     out_bold_green "\tdone\n"
 }
@@ -103,7 +103,7 @@ set_passwordless_sudo () {
     for n in "${nodes[@]}"
     do
         out_bold "root@$n\n"
-        ssh "$cephadm_user"@"$n" << EOF
+        ssh root@"$n" << EOF
 echo "${cephadm_user} ALL = (root) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/${cephadm_user} &> /dev/null
 sudo chmod 0440 /etc/sudoers.d/${cephadm_user}
 EOF
@@ -136,32 +136,36 @@ add_salt_master_to_hosts () {
 _install_ceph_via_ceph_deploy () {
     # First install ceph/ceph-deploy on admin node (here)
     out_bold "\tInstalling Ceph on admin (${nodes[0]}) node...\n"
-    sudo zypper --non-interactive install ceph || return "$failure"
-    sudo zypper --non-interactive install ceph-deploy || return "$failure"
+    out_bold "\tChanging to /home/$cephadm_user...\n"
+    cd "/home/$cephadm_user"
+    zypper --non-interactive install ceph || return "$failure"
+    zypper --non-interactive install ceph-deploy || return "$failure"
     out_bold_green "\tdone\n"
     # Install ceph on all nodes (repeats attempt to install locally as well)
     out_bold "\tInstalling Ceph on remainder of nodes...\n"
-    ceph-deploy install "${nodes[@]}" || return "$failure"
+    sudo -u "$cephadm_user" -H bash -c "ceph-deploy install ${nodes[*]} || return \"$failure\""
     out_bold_green "\tdone\n"
     out_bold "\tDeploying new Ceph cluster...\n"
-    ceph-deploy new "${nodes[@]}" || return "$failure"
+    sudo -u "$cephadm_user" -H bash -c "ceph-deploy new ${nodes[*]} || return \"$failure\""
     out_bold_green "\tdone\n"
     out_bold "\tCreating MONs...\n"
-    ceph-deploy mon create-initial || return "$failure"
+    sudo -u "$cephadm_user" -H bash -c "ceph-deploy mon create-initial || return \"$failure\""
     out_bold_green "\tdone\n"
     out_bold "\tPreparing OSDs...\n"
     for n in "${nodes[@]}"
     do
         # Prepare osds. Assumes we have /dev/vdb devoted to OSD.
-        ceph-deploy osd prepare $n:vdb || return "$failure"
+        sudo -u "$cephadm_user" -H bash -c "ceph-deploy osd prepare \"$n\":vdb || return \"$failure\""
     done
     out_bold_green "\tdone\n"
     # Install rgw on admin (this) node.
     out_bold "\tInstalling RGW on admin (${nodes[0]}) node...\n"
-    ceph-deploy --overwrite-conf rgw create "${nodes[0]}"
-    out_bold_greep "\tdone\n"
+    sudo -u "$cephadm_user" -H bash -c "ceph-deploy --overwrite-conf rgw create ${nodes[0]}"
+    out_bold_green "\tdone\n"
     out_bold "\tGathering keys on admin (${nodes[0]}) node...\n"
-    ceph-deploy gatherkeys "${nodes[0]}"
+    sudo -u "$cephadm_user" -H bash -c "ceph-deploy gatherkeys ${nodes[0]}"
+    out_bold "\tCopying client admin keyring to /etc/ceph/\n"
+    cp /home/$cephadm_user/ceph.client.admin.keyring /etc/ceph/
 }
 
 _install_ceph_via_deepsea () {
@@ -221,19 +225,16 @@ out_bold_green "==========================\n"
 out_bold_green "Admin Node: Deploying ${ses_ver}\n"
 out_bold_green "==========================\n"
 
-# if [ "$ses_ver" != "ses4" ]
-# then
-#     out_bold "\nChecking if running as user '${cephadm_user}'... "
-#     running_as_cephadm && out_bold "yes\n" || out_fail_exit "no\n"
-# fi
+out_bold "\nChecking if running as root'... "
+running_as_root && out_bold "yes\n" || out_fail_exit "no\n"
 
-out_bold "\nPreparing admin (${nodes[0]}) node...\n"
-prepare_admin_node || out_fail_exit "failed\n"
-
-out_bold "\nSetting passwordless sudo on all nodes (root password needed)...\n"
+out_bold "\nSetting passwordless sudo on all nodes (root password needed)...\n\n"
 set_passwordless_sudo || out_fail_exit "failed\n"
 
-out_bold "\nInstalling SES\n"
+out_bold "\nPreparing admin (${nodes[0]}) node...\n\n"
+prepare_admin_node || out_fail_exit "failed\n"
+
+out_bold "\nInstalling SES\n\n"
 install_ceph || out_fail_exit "failed\n"
 
 out_bold_green "\nFinished\n"
