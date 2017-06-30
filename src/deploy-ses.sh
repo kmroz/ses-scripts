@@ -80,6 +80,23 @@ running_as_root () {
     [[ `whoami` = "root" ]]
 }
 
+cephadm_user_exists () {
+    cephadm_user="$1"
+
+    id -u "$cephadm_user" &> /dev/null
+
+    if [ $? = 1 ]
+    then
+        out_bold_red "no\n"
+        out_bold "\tCreating $cephadm_user\n"
+        useradd --create-home "$cephadm_user"
+        out_bold "\tSetting password\n"
+        passwd "$cephadm_user"
+    else
+        out_bold "yes\n"
+    fi
+}
+
 # Get our admin node (which will also run Ceph) ready.
 prepare_admin_node () {
     # Generate keys
@@ -225,8 +242,11 @@ out_bold_green "==========================\n"
 out_bold_green "Admin Node: Deploying ${ses_ver}\n"
 out_bold_green "==========================\n"
 
-out_bold "\nChecking if running as root'... "
+out_bold "\nChecking if running as root... "
 running_as_root && out_bold "yes\n" || out_fail_exit "no\n"
+
+out_bold "\nChecking if user $cephadm_user exists... "
+cephadm_user_exists "$cephadm_user"
 
 out_bold "\nSetting passwordless sudo on all nodes (root password needed)...\n\n"
 set_passwordless_sudo || out_fail_exit "failed\n"
