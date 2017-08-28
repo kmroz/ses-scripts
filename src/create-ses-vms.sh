@@ -214,7 +214,7 @@ create_blank_images () {
 # Note: for "hostname" to take hold, make sure autoyast file does not set hostname.
 install_os () {
     local vcpus=1
-    local ram=1024
+    local ram=2048
     local base_img_path=""
 
     for n in "${vm_names[@]}"
