@@ -19,7 +19,7 @@ assert_err=255
 
 # Some globals
 scriptname=$(basename "$0")
-www_srv="oak"                 # TODO: make this configurable
+www_srv="coral"                 # TODO: make this configurable
 img_type="qcow2"              # TODO: make this configurable
 
 # Required params
